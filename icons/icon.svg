@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e6b4f" />
+      <stop offset="100%" stop-color="#053023" />
+    </linearGradient>
+    <linearGradient id="walletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1df2b2" />
+      <stop offset="100%" stop-color="#0ba375" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+  
+  <!-- Rounded Background -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  
+  <!-- Sleek Glowing Circle in Background -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#1df2b2" stroke-width="4" stroke-opacity="0.15" />
+  
+  <!-- Minimalist Wallet and Coin Icon -->
+  <g filter="url(#shadow)">
+    <!-- Wallet body -->
+    <rect x="136" y="200" width="240" height="160" rx="24" fill="url(#walletGrad)" />
+    <!-- Wallet flap -->
+    <path d="M 280 200 L 376 200 A 24 24 0 0 1 376 280 L 280 280 Z" fill="#063c2c" opacity="0.3" />
+    <path d="M 296 220 L 376 220 A 16 16 0 0 1 376 280 L 296 280 Z" fill="#053023" />
+    <!-- Wallet clasp (gold star/circle) -->
+    <circle cx="320" cy="250" r="12" fill="#ffdd55" />
+    
+    <!-- Coins popping out of wallet -->
+    <circle cx="210" cy="170" r="40" fill="#ffdd55" stroke="#ffffff" stroke-width="4" />
+    <circle cx="270" cy="150" r="40" fill="#ffeaa7" stroke="#ffffff" stroke-width="4" />
+  </g>
+</svg>

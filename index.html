@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FAF8F5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="description" content="Удобное PWA-приложение для учета доходов, расходов и счетов">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <title>Кошелек — Личный бюджет</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&family=Manrope:wght@400;500;600;700;800&family=Marck+Script&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="paper-bg" aria-hidden="true"></div>
+
+  <div class="app-shell">
+    <!-- ================= ВЕРХНЯЯ ШАПКА: МЕСЯЦ ПО ЦЕНТРУ, НАСТРОЙКИ СПРАВА ================= -->
+    <header class="topbar" id="mainTopbar">
+      <div class="topbar-left">
+        <button id="cloudStatusBadge" class="status-badge local" type="button" title="Локальный режим. Нажмите, чтобы узнать больше." aria-label="Статус облачной синхронизации" hidden>
+          <span class="status-badge-icon">☁️</span>
+        </button>
+      </div>
+
+      <div class="topbar-center">
+        <div id="monthNavBar" class="month-nav">
+          <button id="prevMonthBtn" class="month-arrow-btn" type="button" aria-label="Предыдущий месяц">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <button id="monthTitleBtn" class="month-title-btn" type="button" title="Выбрать месяц в календаре">
+            <span id="activeMonthLabel">НОЯБРЬ 2026 Г.</span>
+            <span id="monthPinkBadge" class="month-pink-chevron">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </span>
+          </button>
+          <button id="nextMonthBtn" class="month-arrow-btn" type="button" aria-label="Следующий месяц">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <button id="settingsBtn" class="plain-icon-btn" type="button" aria-label="Настройки" title="Настройки">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= ВКЛАДКИ «РАСХОДЫ» И «ДОХОДЫ» (ОДИН ЭКРАН, МЕНЯЕТСЯ ТИП) ================= -->
+    <main id="mainSection" class="page-section main-page">
+      <!-- Плашка быстрого добавления: текст / голос / ИИ -->
+      <section class="quick-zone" id="quickZone">
+        <div class="quick-zone-head">
+          <h2 id="quickZoneTitle" class="script-heading qz-title">Что потратили?</h2>
+          <button id="quickAiAddBtn" class="quick-ai-btn" type="button" title="Несколько записей сразу через ИИ">
+            <span>✨ Несколько сразу</span>
+          </button>
+        </div>
+        <form id="quickZoneForm" class="quick-input-row" autocomplete="off">
+          <input id="quickZoneInput" type="text" enterkeyhint="send" autocomplete="off" autocapitalize="none" placeholder="такси 300, кофе 180…" aria-label="Быстрая запись текстом или голосом">
+          <button type="button" id="quickZoneMicBtn" class="qz-icon-btn" aria-label="Сказать голосом"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg></button>
+          <button type="submit" id="quickZoneSendBtn" class="qz-send-btn" aria-label="Добавить"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></button>
+        </form>
+      </section>
+
+      <!-- Быстрые шаблоны -->
+      <section class="templates-block">
+        <div class="qz-chips-head">
+          <span class="templates-title">⚡ Быстрые шаблоны</span>
+          <button id="quickChipsEditBtn" class="text-link-btn" type="button">изменить</button>
+        </div>
+        <div id="quickTemplates" class="templates-row"></div>
+      </section>
+
+      <!-- Итог периода + баланс -->
+      <section class="period-hero">
+        <div class="hero-main">
+          <span id="heroLabel" class="hero-label"><span id="heroLabelText" class="hl-peach">ПОТРАЧЕНО</span></span>
+          <span id="heroValue" class="hero-value">0 ₽</span>
+        </div>
+        <button id="heroBalanceBtn" class="hero-balance" type="button" title="Подробнее о балансе">
+          <span class="hero-balance-label">Баланс</span>
+          <span id="heroBalanceVal" class="hero-balance-val">0 ₽</span>
+        </button>
+      </section>
+
+      <!-- Детали баланса (раскрываются по нажатию на «Баланс») -->
+      <div id="balancePanel" class="balance-panel" hidden>
+        <div class="balance-panel-inner">
+          <div class="balance-panel-row">
+            <span class="balance-panel-label">Стартовый баланс</span>
+            <span id="balanceAdjustmentVal" class="balance-panel-val">0,00 ₽</span>
+          </div>
+          <div class="balance-panel-row">
+            <span class="balance-panel-label">Доходы (всего)</span>
+            <span id="totalIncome" class="balance-panel-val income">0,00 ₽</span>
+          </div>
+          <div class="balance-panel-row">
+            <span class="balance-panel-label">Расходы (всего)</span>
+            <span id="totalExpense" class="balance-panel-val expense">0,00 ₽</span>
+          </div>
+          <div class="balance-panel-row total">
+            <span class="balance-panel-label">Баланс сейчас</span>
+            <span id="netBalanceDetail" class="balance-panel-val">0,00 ₽</span>
+          </div>
+          <div class="balance-panel-actions">
+            <button id="adjustBalanceBtn" class="text-link-btn" type="button">Изменить в настройках ›</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Операции за период -->
+      <section class="ops-block">
+        <div class="ops-head">
+          <h2 id="opsTitle" class="script-heading sm">Операции</h2>
+          <div class="ops-actions">
+            <button id="topSearchBtn" class="plain-icon-btn" type="button" aria-label="Поиск" title="Поиск">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.35" y2="16.35"></line></svg>
+            </button>
+            <button id="toggleFilters" class="plain-icon-btn" type="button" aria-label="Фильтры" title="Фильтры">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="10" y1="17" x2="14" y2="17"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <section id="toolbarSection" class="toolbar">
+          <div class="search-row">
+            <input id="searchInput" type="search" placeholder="Поиск по комментариям и категориям">
+            <button id="resetFiltersBtn" class="icon-btn" type="button" aria-label="Сбросить фильтры" title="Сбросить фильтры">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            </button>
+          </div>
+          <div class="row">
+            <select id="categoryFilter"></select>
+            <select id="sortSelect">
+              <option value="date_desc">Новые сначала</option>
+              <option value="date_asc">Старые сначала</option>
+              <option value="amount_desc">Сумма: больше</option>
+              <option value="amount_asc">Сумма: меньше</option>
+              <option value="category_asc">Категория А-Я</option>
+            </select>
+          </div>
+          <div class="row">
+            <input id="dateFrom" type="date" aria-label="Дата от">
+            <input id="dateTo" type="date" aria-label="Дата до">
+          </div>
+          <div class="row">
+            <input id="amountMin" type="number" min="0" step="0.01" placeholder="Сумма от">
+            <input id="amountMax" type="number" min="0" step="0.01" placeholder="Сумма до">
+          </div>
+          <div class="row">
+            <select id="groupingSelect" aria-label="Группировка">
+              <option value="day">Группировать по дням</option>
+              <option value="year_month">Группировать по месяцам</option>
+            </select>
+          </div>
+        </section>
+
+        <!-- Активный фильтр по категории (сбрасывается крестиком) -->
+        <section id="categoryTotals" class="active-filter-row"></section>
+
+        <ul id="transactionList" class="transaction-list"></ul>
+        <p id="emptyState" class="empty-state">Пока пусто. Напишите выше, например «кофе 180», или нажмите «+».</p>
+      </section>
+    </main>
+
+    <!-- ================= ВКЛАДКА 2: АНАЛИТИКА ================= -->
+    <main id="analyticsSection" class="page-section analytics-page" hidden>
+      <div class="ref-type-pills">
+        <button id="analyticsExpensePill" class="ref-pill active-expense" type="button" data-anal-type="expense">
+          <span class="ref-pill-icon coral-cart">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F48278" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.5"></circle><circle cx="20" cy="21" r="1.5"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          </span>
+          <span>РАСХОДЫ</span>
+        </button>
+        <button id="analyticsIncomePill" class="ref-pill" type="button" data-anal-type="income">
+          <span class="ref-pill-icon mint-dollar">$</span>
+          <span>ДОХОД</span>
+        </button>
+        <button id="toggleDashFilters" class="plain-icon-btn dash-filter-trigger" type="button" aria-label="Фильтры аналитики" title="Фильтры аналитики">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="10" y1="17" x2="14" y2="17"></line></svg>
+        </button>
+      </div>
+
+      <div id="dashToolbar" class="dash-toolbar">
+        <div class="dash-period-tabs">
+          <button class="dash-tab active" type="button" data-period="month">Месяц</button>
+          <button class="dash-tab" type="button" data-period="quarter">Квартал</button>
+          <button class="dash-tab" type="button" data-period="year">Год</button>
+          <button class="dash-tab" type="button" data-period="all">Всё время</button>
+        </div>
+        <div class="search-row">
+          <input id="dashSearchInput" type="search" placeholder="Поиск по аналитике...">
+          <button id="resetDashFiltersBtn" class="icon-btn" type="button" aria-label="Сбросить фильтры дашборда" title="Сбросить фильтры">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+          </button>
+        </div>
+        <div class="row">
+          <select id="dashCategoryFilter">
+            <option value="all">Все категории</option>
+          </select>
+        </div>
+        <div class="row">
+          <input id="dashDateFrom" type="date" aria-label="Дата от">
+          <input id="dashDateTo" type="date" aria-label="Дата до">
+        </div>
+        <div class="row">
+          <input id="dashAmountMin" type="number" min="0" step="0.01" placeholder="Сумма от">
+          <input id="dashAmountMax" type="number" min="0" step="0.01" placeholder="Сумма до">
+        </div>
+      </div>
+
+      <!-- Кольцевая диаграмма со штриховкой -->
+      <div id="dashDonutChart" class="ref-donut-stage"></div>
+
+      <!-- Список категорий под диаграммой -->
+      <section class="analytics-cat-section">
+        <h2 id="analyticsScriptTitle" class="script-heading">Расходы</h2>
+        <ul id="analyticsCategoryList" class="ref-category-list"></ul>
+      </section>
+
+      <!-- ИИ ФИНАНСОВЫЙ СОВЕТНИК И ЧАТ -->
+      <div id="aiPromptCard" class="ai-prompt-card">
+        <div class="ai-btn-row">
+          <button id="generateAiReportBtn" class="ai-magic-btn" type="button">
+            <svg class="magic-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.21 1.21 0 0 0 1.72 0L21.64 5.36a1.21 1.21 0 0 0 0-1.72Z"></path>
+              <path d="m14 7 3 3"></path>
+            </svg>
+            <span>Составить ИИ-отчет по бюджету</span>
+          </button>
+          <button type="button" id="aiInfoBtn" class="icon-btn info-btn" aria-label="Справка по ИИ-отчету" title="Справка">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          </button>
+          <button type="button" id="aiHistoryBtn" class="icon-btn history-btn" aria-label="История консультаций" title="История консультаций">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </button>
+        </div>
+        <p id="aiIntroText" class="ai-intro-text" style="display: none;">Ваш персональный нейросетевой консультант готов составить подробный разбор бюджета и ответить на любые вопросы.</p>
+      </div>
+
+      <div id="aiChatBox" class="ai-chat-box" style="display: none;">
+        <div class="ai-chat-header">
+          <span class="ai-chat-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.21 1.21 0 0 0 1.72 0L21.64 5.36a1.21 1.21 0 0 0 0-1.72Z"></path></svg>
+            Чат с ИИ-советником
+          </span>
+          <div class="ai-chat-controls">
+            <button id="resetAiChatBtn" class="tx-btn" type="button" title="Начать новый диалог">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button id="toggleAiFullscreenBtn" class="tx-btn" type="button" title="Развернуть на весь экран">
+              <svg id="fullscreenIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+            <button id="closeAiChatBtn" class="tx-btn close-chat-btn" type="button" title="Закрыть чат">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+        <div id="aiChatMessages" class="ai-chat-messages"></div>
+        <div class="ai-chat-input-row">
+          <input id="aiChatInput" type="text" enterkeyhint="send" placeholder="Задайте вопрос по бюджету...">
+          <button id="sendAiMessageBtn" class="primary" type="button">Спросить</button>
+        </div>
+      </div>
+
+      <details class="advanced-analytics-drawer">
+        <summary class="advanced-analytics-summary">Подробная статистика и графики</summary>
+        <div class="advanced-analytics-body">
+          <div id="dashSummary" class="dash-summary"></div>
+          <div id="dashExtremes" class="dash-extremes-section"></div>
+          <div id="dashBarChart" class="dash-bar-chart"></div>
+          <div id="dashExpenseBreakdown" class="dash-breakdown"></div>
+          <div id="dashIncomeBreakdown" class="dash-breakdown"></div>
+          <div class="dash-yearly-detail-section">
+            <div class="dash-section-title">📅 Детализация бюджета по годам</div>
+            <ul id="dashYearlyList" class="dash-yearly-list"></ul>
+          </div>
+          <div id="dashTrend" class="dash-trend"></div>
+        </div>
+      </details>
+    </main>
+
+    <!-- ================= ПЛАВАЮЩАЯ КНОПКА «+» ================= -->
+    <div id="floatingActionsWrap" class="floating-actions">
+      <button id="fabPlusBtn" class="fab-watercolor-plus" type="button" title="Новая запись" aria-label="Новая запись">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- ================= НИЖНЯЯ НАВИГАЦИЯ (3 ВКЛАДКИ) ================= -->
+    <nav class="bottom-nav" aria-label="Основная навигация">
+      <button class="nav-item active" type="button" data-nav="expense">
+        <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"></circle><circle cx="18" cy="20" r="1.5"></circle><path d="M2 3h3l2.4 11.5a2 2 0 0 0 2 1.5h8.6a2 2 0 0 0 2-1.5L22 7H6"></path></svg>
+        <span>Расходы</span>
+      </button>
+      <button class="nav-item" type="button" data-nav="income">
+        <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M15 9.2c-.5-1-1.6-1.6-3-1.6-1.7 0-3 .9-3 2.2 0 3 6 1.6 6 4.5 0 1.3-1.3 2.2-3 2.2-1.5 0-2.6-.6-3.1-1.7"></path><line x1="12" y1="6" x2="12" y2="7.6"></line><line x1="12" y1="16.5" x2="12" y2="18"></line></svg>
+        <span>Доходы</span>
+      </button>
+      <button class="nav-item" type="button" data-nav="analytics">
+        <svg class="nav-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a9 9 0 0 1 8.66 6.5"/><path d="M20.66 14.5A9 9 0 0 1 6 18.7"/><path d="M3.5 14A9 9 0 0 1 9.5 3.4"/></svg>
+        <span>Аналитика</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ================= ДИАЛОГ: НОВАЯ ТРАНЗАКЦИЯ (ЭРГОНОМИЧНЫЙ ЭКРАН БЕЗ ЗУМА) ================= -->
+  <dialog id="transactionDialog" class="modal fullscreen-sheet">
+    <form id="transactionForm" method="dialog" class="tx-sheet-content">
+      <!-- Верхняя панель -->
+      <div class="tx-sheet-topbar">
+        <button type="button" id="cancelTransaction" class="tx-sheet-close" aria-label="Закрыть">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h3 id="transactionDialogTitle" class="tx-sheet-title">НОВАЯ ЗАПИСЬ</h3>
+        <button type="submit" class="tx-sheet-save">Сохранить</button>
+      </div>
+
+      <!-- Переключатели: РАСХОД | ДОХОД | ПЕРЕВОД -->
+      <div class="tx-sheet-pills">
+        <button type="button" class="tx-mode-pill active-expense" data-tx-mode="expense">
+          <span class="ref-pill-icon coral-cart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F48278" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.5"></circle><circle cx="20" cy="21" r="1.5"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          </span>
+          <span>РАСХОД</span>
+        </button>
+        <button type="button" class="tx-mode-pill" data-tx-mode="income">
+          <span class="ref-pill-icon mint-dollar">$</span>
+          <span>ДОХОД</span>
+        </button>
+        <button type="button" class="tx-mode-pill" data-tx-mode="transfer">
+          <span class="ref-pill-icon blue-transfer">⇄</span>
+          <span>ПЕРЕВОД</span>
+        </button>
+      </div>
+
+      <!-- Крупное отображение суммы (нажатие возвращает цифровую клавиатуру) -->
+      <div id="txAmountAreaBtn" class="tx-sheet-amount-area" role="button" tabindex="0" aria-label="Ввод суммы">
+        <div id="txAmountFormattedDisplay" class="tx-big-amount">0,00 ₽</div>
+        <input id="txAmount" type="text" inputmode="none" placeholder="0,00" required class="tx-raw-amount-input" aria-label="Сумма или формула">
+        <span id="txAmountPreview" class="tx-formula-preview" style="display: none;"></span>
+      </div>
+
+      <!-- Быстрый выбор категории в 1 касание (горизонтальная лента) -->
+      <div id="txQuickCategoryBar" class="tx-quick-cat-bar"></div>
+
+      <!-- Компактные поля операции -->
+      <div class="tx-sheet-rows">
+        <!-- Категория (скрывается при переводе) -->
+        <div id="txCategoryRow" class="tx-field-row">
+          <span class="tx-field-label">Категория</span>
+          <div class="tx-field-control">
+            <select id="txCategory" required class="tx-clean-select"></select>
+            <button type="button" id="txQuickCatManageBtn" class="tx-cat-manage-mini" title="Управление категориями">+</button>
+            <span class="tx-chevron">›</span>
+          </div>
+        </div>
+
+        <!-- При переводе: На счет -->
+        <div id="txTransferTargetRow" class="tx-field-row" hidden>
+          <span class="tx-field-label">На счет</span>
+          <div class="tx-field-control">
+            <select id="txTargetAccount" class="tx-clean-select"></select>
+            <span class="tx-chevron">›</span>
+          </div>
+        </div>
+
+        <!-- Дата и Счет -->
+        <div class="tx-field-row">
+          <span class="tx-field-label">Дата</span>
+          <div class="tx-field-control">
+            <span class="tx-date-chips">
+              <button type="button" id="txDateTodayBtn" class="tx-date-chip">Сегодня</button>
+              <button type="button" id="txDateYestBtn" class="tx-date-chip">Вчера</button>
+            </span>
+            <span id="txDateHumanLabel" class="tx-field-val">Сегодня</span>
+            <input id="txDate" type="date" required class="tx-date-overlay-input" aria-label="Дата операции">
+            <span class="tx-chevron">›</span>
+          </div>
+        </div>
+
+        <!-- Заметка (однострочный input с enterkeyhint="done", не вызывает зум и скрывает цифровую панель при наборе текста) -->
+        <div class="tx-field-row comment-row">
+          <textarea id="txComment" rows="1" enterkeyhint="done" autocomplete="off" placeholder="Комментарий (необязательно)…" aria-label="Комментарий"></textarea>
+        </div>
+
+        <button type="button" id="txMoreToggleBtn" class="tx-more-toggle" aria-expanded="false">
+          <span>Ещё: счёт, повтор, оплата</span>
+          <span id="txMoreSummary" class="tx-more-summary"></span>
+          <span class="tx-more-chev">›</span>
+        </button>
+        <div id="txMoreWrap" class="tx-more-wrap" hidden>
+        <div class="tx-field-row">
+          <span id="txAccountRowLabel" class="tx-field-label">Счет</span>
+          <div class="tx-field-control">
+            <select id="txAccount" class="tx-clean-select">
+              <option value="default">По умолчанию</option>
+            </select>
+            <span class="tx-chevron">›</span>
+          </div>
+        </div>
+
+        <!-- Компактная строка: Повторение + Оплачено -->
+        <div class="tx-field-row tx-split-row">
+          <div class="tx-split-half">
+            <span class="tx-field-label">Повтор</span>
+            <div class="tx-field-control">
+              <select id="txRecurrence" class="tx-clean-select">
+                <option value="none">Нет</option>
+                <option value="daily">Дни</option>
+                <option value="weekly">Недели</option>
+                <option value="monthly">Месяцы</option>
+                <option value="yearly">Годы</option>
+              </select>
+              <span class="tx-chevron">›</span>
+            </div>
+          </div>
+          <div class="tx-split-divider"></div>
+          <div class="tx-split-half tx-paid-half">
+            <span class="tx-field-label">Оплачено</span>
+            <button type="button" id="txPaidToggleBtn" class="paid-check-btn checked" role="switch" aria-checked="true" aria-label="Статус оплаты">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </button>
+          </div>
+        </div>
+        </div>
+
+      </div>
+
+      <!-- Встроенная цифровая клавиатура (с большой кнопкой «Готово / Сохранить» под палец) -->
+      <div id="txKeypad" class="tx-keypad" aria-label="Цифровая клавиатура">
+        <div class="tx-keypad-ops">
+          <button type="button" class="kp-op-btn" data-key="+">+</button>
+          <button type="button" class="kp-op-btn" data-key="-">−</button>
+          <button type="button" class="kp-op-btn" data-key="*">×</button>
+          <button type="button" class="kp-op-btn" data-key="/">÷</button>
+          <button type="button" class="kp-op-btn" data-key="00">00</button>
+          <button type="button" class="kp-op-btn" data-key="C">Сброс</button>
+        </div>
+        <div class="tx-keypad-grid">
+          <button type="button" class="kp-btn" data-key="1"><span class="kp-num">1</span></button>
+          <button type="button" class="kp-btn" data-key="2"><span class="kp-num">2</span></button>
+          <button type="button" class="kp-btn" data-key="3"><span class="kp-num">3</span></button>
+          <button type="button" class="kp-btn" data-key="4"><span class="kp-num">4</span></button>
+          <button type="button" class="kp-btn" data-key="5"><span class="kp-num">5</span></button>
+          <button type="button" class="kp-btn" data-key="6"><span class="kp-num">6</span></button>
+          <button type="button" class="kp-btn" data-key="7"><span class="kp-num">7</span></button>
+          <button type="button" class="kp-btn" data-key="8"><span class="kp-num">8</span></button>
+          <button type="button" class="kp-btn" data-key="9"><span class="kp-num">9</span></button>
+          <button type="button" class="kp-btn kp-dot" data-key="."><span class="kp-num">,</span></button>
+          <button type="button" class="kp-btn" data-key="0"><span class="kp-num">0</span></button>
+          <button type="button" class="kp-btn kp-back" data-key="BACKSPACE" aria-label="Удалить символ">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path>
+              <line x1="18" y1="9" x2="12" y2="15"></line>
+              <line x1="12" y1="9" x2="18" y2="15"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="tx-keypad-bottom-actions">
+          <button type="button" id="deleteTxInModalBtn" class="tx-modal-del-btn" hidden>Удалить</button>
+          <button type="button" id="txSaveTemplateBtn" class="tx-modal-tpl-btn" title="Сохранить как быстрый шаблон" aria-label="В быстрые шаблоны" hidden>⭐</button>
+          <button type="submit" id="bottomSaveTxBtn" class="tx-modal-submit-btn">✓ Сохранить запись</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ КОРРЕКТИРОВКИ БАЛАНСА (БЕЗ СИСТЕМНОГО PROMPT) ================= -->
+  <dialog id="adjustBalanceDialog" class="modal">
+    <form id="adjustBalanceForm" class="modal-content">
+      <h3>Точный баланс сейчас</h3>
+      <p id="adjustBalanceHint" class="modal-desc">Сколько денег у вас сейчас на самом деле? Стартовый баланс пересчитается автоматически.</p>
+      <label>Фактический баланс (₽)
+        <input id="adjustBalanceInput" type="number" step="0.01" required placeholder="0,00">
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="cancelAdjustBalanceBtn" class="ghost">Отмена</button>
+        <button type="submit" class="primary">Применить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ КАТЕГОРИЙ ================= -->
+  <dialog id="categoryDialog" class="modal cm-dialog">
+    <div class="modal-content wide cm-content">
+      <div class="cm-head">
+        <h3>Категории</h3>
+        <button type="button" id="closeCategoryDialog" class="cm-close" aria-label="Закрыть">×</button>
+      </div>
+      <div class="cat-dialog-tabs cm-tabs">
+        <button type="button" class="cat-type-tab active" data-cat-tab="expense">Расходы <span class="cm-tab-count" data-count-for="expense"></span></button>
+        <button type="button" class="cat-type-tab" data-cat-tab="income">Доходы <span class="cm-tab-count" data-count-for="income"></span></button>
+      </div>
+
+      <form id="categoryForm" class="cm-editor" hidden novalidate>
+        <div class="cm-editor-title" id="cmEditorTitle">Новая категория</div>
+        <div class="cm-editor-row">
+          <span id="cmPreview" class="cm-preview" aria-hidden="true"></span>
+          <input id="categoryName" maxlength="40" placeholder="Название, например «Продукты»" autocomplete="off" enterkeyhint="done">
+        </div>
+        <div class="cm-label">Значок</div>
+        <div id="cmEmojiGrid" class="cm-emoji-grid"></div>
+        <div class="cm-label">Цвет</div>
+        <div id="cmColorGrid" class="cm-color-grid"></div>
+        <p id="cmDeleteHint" class="cm-hint" hidden></p>
+        <div class="cm-editor-actions">
+          <button type="button" id="cmDelete" class="ghost cm-delete" hidden>Удалить</button>
+          <span class="cm-spacer"></span>
+          <button type="button" id="cmCancel" class="ghost">Отмена</button>
+          <button type="submit" id="cmSubmit" class="primary">Добавить</button>
+        </div>
+      </form>
+
+      <div class="cm-toolbar">
+        <input id="catSearch" type="search" placeholder="Поиск" autocomplete="off" aria-label="Поиск категории">
+        <button type="button" id="catAddBtn" class="primary cm-add-btn">+ Новая</button>
+      </div>
+      <div id="cmSummary" class="cm-summary"></div>
+      <ul id="categoryList" class="category-list cm-list"></ul>
+    </div>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ РЕДАКТИРОВАНИЯ КАТЕГОРИИ ================= -->
+  <dialog id="editCategoryDialog" class="modal">
+    <form id="editCategoryForm" class="modal-content">
+      <h3>Редактировать категорию</h3>
+      <input type="hidden" id="editCategoryId">
+      <label>Название (можно со смайликом)
+        <input id="editCategoryName" required placeholder="🛒 Продукты">
+      </label>
+      <label>Цвет
+        <input id="editCategoryColor" type="color">
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="cancelEditCategory" class="ghost">Отмена</button>
+        <button type="submit" class="primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ СОЗДАНИЯ СЧЕТА ================= -->
+  <dialog id="accountDialog" class="modal">
+    <form id="accountForm" class="modal-content">
+      <h3>Создать новый счет</h3>
+      <label>Название счета
+        <input id="newAccountName" required placeholder="Например: Карта Т-Банк, Наличные">
+      </label>
+      <label>Начальный баланс (₽)
+        <input id="newAccountInitial" type="number" step="0.01" value="0" placeholder="0,00">
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="cancelAccountDialog" class="ghost">Отмена</button>
+        <button type="submit" class="primary">Создать</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ НАСТРОЕК ================= -->
+  <dialog id="settingsDialog" class="modal">
+    <div class="modal-content wide settings-sheet">
+      <div class="settings-head">
+        <h3>Настройки</h3>
+        <button type="button" id="closeSettingsX" class="tx-sheet-close" aria-label="Закрыть">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- Баланс -->
+      <div class="settings-section">
+        <p class="settings-label">Баланс</p>
+        <div class="settings-balance-now">
+          <span>Сейчас на руках</span>
+          <strong id="settingsCurrentBalance">0,00 ₽</strong>
+        </div>
+        <label class="settings-inline-label" for="startBalanceInput">Стартовый баланс, ₽</label>
+        <div class="api-key-row">
+          <input id="startBalanceInput" type="number" step="0.01" inputmode="decimal" placeholder="0">
+          <button type="button" id="saveStartBalanceBtn" class="primary">Сохранить</button>
+        </div>
+        <p class="settings-hint">Сумма, с которой вы начали учёт. Баланс = стартовый + доходы − расходы.</p>
+        <button type="button" id="settingsAdjustBalanceBtn" class="text-link-btn settings-link">Знаю точный баланс сейчас — пересчитать ›</button>
+      </div>
+
+      <!-- Счета -->
+      <div class="settings-section">
+        <div class="settings-row">
+          <p class="settings-label" style="margin:0;">Счета</p>
+          <span id="accountsNetWorthVal" class="settings-muted-val">0,00 ₽</span>
+        </div>
+        <div id="accountsListContainer" class="accounts-list compact"></div>
+        <div class="row settings-two-btns">
+          <button id="createNewAccountBtn" class="ghost" type="button">+ Новый счёт</button>
+          <button id="transferBalanceBtn" class="ghost" type="button">⇄ Перевод</button>
+        </div>
+      </div>
+
+      <!-- Категории и внешний вид -->
+      <div class="settings-section">
+        <button id="settingsCategoriesBtn" class="settings-action-btn" type="button">
+          <span class="settings-action-icon">🗂️</span>
+          <span>Категории расходов и доходов</span>
+        </button>
+        <div class="settings-row">
+          <span>Тёмная тема</span>
+          <button id="themeToggle" class="toggle-btn" type="button" role="switch" aria-checked="false"></button>
+        </div>
+      </div>
+
+      <!-- ИИ -->
+      <details class="settings-group">
+        <summary>
+          <span>✨ Добавление через ИИ</span>
+          <span id="aiSavedStatusBadge" class="ai-saved-badge">Ключ не задан</span>
+        </summary>
+        <div class="settings-form-stack">
+          <label>Провайдер ИИ
+            <select id="aiProvider">
+              <option value="google">Google Gemini (Рекомендуется)</option>
+              <option value="openai">OpenAI API</option>
+              <option value="custom">Custom (OpenAI-совместимый / DeepSeek)</option>
+            </select>
+          </label>
+          <label id="aiApiUrlLabel" style="display: none;">API Base URL
+            <input id="aiApiUrl" type="url" placeholder="https://api.deepseek.com/v1" autocomplete="off">
+          </label>
+          <label>Название модели
+            <input id="aiModel" type="text" list="aiModelSuggestions" placeholder="gemini-2.5-flash" autocomplete="off">
+            <datalist id="aiModelSuggestions">
+              <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Рекомендуется)</option>
+              <option value="gemini-2.0-flash">Google Gemini 2.0 Flash</option>
+              <option value="gemini-3.1-flash-lite-preview">Google Gemini 3.1 Flash Lite</option>
+              <option value="gemini-1.5-flash">Google Gemini 1.5 Flash</option>
+              <option value="gpt-4o-mini">OpenAI GPT-4o mini</option>
+              <option value="deepseek-chat">DeepSeek Chat</option>
+            </datalist>
+          </label>
+          <div id="aiModelPresetChips" class="ai-model-chips">
+            <button type="button" class="ai-model-chip" data-model="gemini-2.5-flash">gemini-2.5-flash</button>
+            <button type="button" class="ai-model-chip" data-model="gemini-2.0-flash">gemini-2.0-flash</button>
+            <button type="button" class="ai-model-chip" data-model="gemini-3.1-flash-lite-preview">gemini-3.1-flash-lite</button>
+          </div>
+          <label>API Key / Токен
+            <div class="api-key-row">
+              <input id="aiApiKey" type="password" placeholder="Вставьте ваш API-ключ (AIza...)" autocomplete="off">
+              <button type="button" id="toggleApiKeyVisibility" class="ghost icon-square-btn" aria-label="Показать ключ">👁</button>
+            </div>
+          </label>
+          <button type="button" id="saveAiSettingsBtn" class="primary full-w-btn">✓ Сохранить ключ и модель ИИ</button>
+          <button type="button" id="aiInstructionBtn" class="ghost full-w-btn">📖 Инструкция по настройке ИИ</button>
+          <div id="aiInstructionBlock" class="instruction-box" style="display: none;">
+            <p><strong>Google Gemini (Рекомендуется, бесплатно):</strong><br>
+            1. Провайдер: <em>Google Gemini</em>.<br>
+            2. Модель: <code>gemini-2.5-flash</code>, <code>gemini-2.0-flash</code> или <code>gemini-3.1-flash-lite-preview</code>.<br>
+            3. Ключ API (начинается на <code>AIza...</code>) получите бесплатно в Google AI Studio.</p>
+            <p><strong>DeepSeek API:</strong><br>
+            1. Провайдер: <em>Custom</em>.<br>
+            2. Base URL: <code>https://api.deepseek.com/v1</code><br>
+            3. Модель: <code>deepseek-chat</code></p>
+            <p><strong>OpenAI API:</strong><br>
+            1. Провайдер: <em>OpenAI API</em>.<br>
+            2. Модель: <code>gpt-4o-mini</code>.</p>
+          </div>
+        </div>
+      </details>
+
+      <!-- Данные -->
+      <details class="settings-group">
+        <summary><span>📦 Данные: импорт, экспорт, примеры</span></summary>
+        <div class="settings-form-stack">
+          <button id="aiImportBtn" class="settings-action-btn" type="button">
+            <span class="settings-action-icon">🪄</span>
+            <span>Умный импорт выписки с ИИ (CSV / Excel / TXT)</span>
+          </button>
+          <div class="row settings-two-btns">
+            <button id="exportCsvBtn" class="settings-action-btn" type="button">
+              <span class="settings-action-icon">⬆️</span><span>Экспорт CSV</span>
+            </button>
+            <button id="importCsvBtn" class="settings-action-btn" type="button">
+              <span class="settings-action-icon">⬇️</span><span>Импорт CSV</span>
+            </button>
+            <input id="importCsvInput" type="file" accept=".csv" style="display:none">
+          </div>
+          <div class="row settings-two-btns">
+            <button id="exportJsonBtn" class="settings-action-btn" type="button">
+              <span class="settings-action-icon">💾</span><span>Полный бэкап (JSON)</span>
+            </button>
+            <button id="importJsonBtn" class="settings-action-btn" type="button">
+              <span class="settings-action-icon">♻️</span><span>Восстановить из бэкапа</span>
+            </button>
+            <input id="importJsonInput" type="file" accept=".json,application/json" style="display:none">
+          </div>
+          <button id="loadRefDataBtn" class="settings-action-btn" type="button">
+            <span class="settings-action-icon">🌸</span>
+            <span>Загрузить стартовый пример (3 записи)</span>
+          </button>
+          <button id="loadDemoDataBtn" class="settings-action-btn" type="button">
+            <span class="settings-action-icon">✨</span>
+            <span>Заполнить демо-данными (50 записей)</span>
+          </button>
+        </div>
+      </details>
+
+      <!-- Облако -->
+      <details class="settings-group">
+        <summary><span>☁️ Синхронизация и облако</span></summary>
+        <div class="settings-form-stack">
+          <div id="cloudUserStatus" class="cloud-status-box">
+            <span>Режим: <strong>Локальный кошелёк (Offline)</strong></span>
+          </div>
+          <div id="cloudConfigBlock" class="cloud-config-box">
+            <div id="dbAuthFormBlock" class="settings-form-stack">
+              <label>Email / Почта
+                <input id="supabaseEmailInput" type="email" placeholder="email@example.com">
+              </label>
+              <label>Пароль
+                <input id="supabasePasswordInput" type="password" placeholder="••••••••">
+              </label>
+              <details class="db-details">
+                <summary id="dbSettingsSummary">⚙️ Параметры подключения к БД (Supabase)</summary>
+                <div class="settings-form-stack" style="margin-top: 8px;">
+                  <label>Supabase URL
+                    <input id="supabaseUrlInput" type="url" placeholder="https://your-project.supabase.co">
+                  </label>
+                  <label>Supabase Anon Key
+                    <input id="supabaseKeyInput" type="password" placeholder="your-anon-key">
+                  </label>
+                </div>
+              </details>
+              <div class="row" style="gap: 8px; margin-top: 6px;">
+                <button type="button" id="supabaseLoginBtn" class="primary" style="flex: 1;">Войти</button>
+                <button type="button" id="supabaseRegisterBtn" class="ghost" style="flex: 1;">Регистрация</button>
+              </div>
+            </div>
+
+            <div id="dbLoggedInBlock" class="settings-form-stack" style="display: none;">
+              <div class="cloud-active-label">☁️ Активная синхронизация</div>
+              <div class="cloud-email-card">
+                <span>Вы вошли как:</span>
+                <strong id="supabaseUserEmailDisplay">user@mail.com</strong>
+              </div>
+              <div class="row" style="gap: 8px;">
+                <button type="button" id="supabaseLogoutBtn" class="ghost danger-outline" style="flex: 1;">Выйти</button>
+                <button type="button" id="fullDisconnectBtn" class="ghost" style="flex: 1;">Отключить всё</button>
+              </div>
+            </div>
+
+            <button type="button" id="toggleCloudInstructionBtn" class="ghost full-w-btn" style="margin-top: 8px;">📖 Инструкция по созданию своей БД Supabase</button>
+            <div id="cloudInstructionBlock" class="instruction-box" style="display: none;">
+              <p><strong>Как создать свою БД бесплатно за 5 минут:</strong></p>
+              <p>1. Зарегистрируйтесь на <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>.</p>
+              <p>2. Создайте проект, откройте <strong>SQL Editor → New Query</strong>, вставьте скрипт ниже и нажмите <strong>Run</strong>.</p>
+              <p>3. Скопируйте <strong>Project URL</strong> и <strong>anon public</strong> из раздела <strong>Settings → API</strong>.</p>
+              <textarea readonly class="sql-script-area" onclick="this.select(); document.execCommand('copy');" title="Нажмите, чтобы скопировать">-- 1. Таблица профилей
+create table profiles (
+  id uuid primary key,
+  balance_adjustment numeric default 0,
+  updated_at timestamptz default now()
+);
+
+-- 2. Таблица категорий
+create table categories (
+  id text primary key,
+  user_id uuid default '00000000-0000-0000-0000-000000000000',
+  name text not null,
+  color text not null,
+  type text not null check (type in ('income', 'expense'))
+);
+
+-- 3. Таблица транзакций
+create table transactions (
+  id text primary key,
+  user_id uuid default '00000000-0000-0000-0000-000000000000',
+  type text not null check (type in ('income', 'expense')),
+  amount numeric not null,
+  category_id text references categories(id) on delete set null,
+  date date not null,
+  comment text default ''
+);
+
+-- 4. Таблица быстрых шаблонов
+create table templates (
+  id text primary key,
+  user_id uuid default '00000000-0000-0000-0000-000000000000',
+  name text not null,
+  type text not null check (type in ('income', 'expense')),
+  category_id text references categories(id) on delete set null,
+  comment text default ''
+);
+
+-- 5. Таблица сессий чата с ИИ
+create table ai_sessions (
+  id text primary key,
+  user_id uuid default '00000000-0000-0000-0000-000000000000',
+  title text not null,
+  history jsonb default '[]'::jsonb,
+  date timestamptz default now()
+);
+
+alter table profiles disable row level security;
+alter table categories disable row level security;
+alter table transactions disable row level security;
+alter table templates disable row level security;
+alter table ai_sessions disable row level security;</textarea>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Опасная зона -->
+      <details class="settings-group settings-danger-zone">
+        <summary><span>⚠️ Опасная зона</span></summary>
+        <div class="settings-form-stack">
+          <button id="clearDataBtn" class="settings-action-btn danger" type="button">
+            <span class="settings-action-icon">🗑️</span>
+            <span>Удалить локальные данные</span>
+          </button>
+          <button id="clearCloudDataBtn" class="settings-action-btn danger" type="button">
+            <span class="settings-action-icon">☁️</span>
+            <span>Удалить данные из облака</span>
+          </button>
+        </div>
+      </details>
+
+      <div class="modal-actions">
+        <button type="button" id="closeSettingsDialog" class="primary full-w-btn">Готово</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ ИСТОРИИ ИИ-ЧАТОВ ================= -->
+  <dialog id="aiHistoryDialog" class="modal">
+    <div class="modal-content wide">
+      <h3>История ИИ-консультаций</h3>
+      <ul id="aiHistoryList" class="category-list"></ul>
+      <div class="modal-actions">
+        <button type="button" id="closeAiHistoryDialog" class="ghost">Закрыть</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ УМНОГО ИМПОРТА С ИИ ================= -->
+  <dialog id="aiImportDialog" class="modal">
+    <div class="modal-content wide">
+      <h3>Умный импорт с ИИ</h3>
+      <p class="modal-desc">
+        Загрузите файл выписки банка (CSV, Excel или TXT). ИИ автоматически обработает все транзакции и добавит их в кошелёк.
+      </p>
+      <label id="aiImportDropZone" for="aiImportFileInput" class="drop-zone">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span id="aiImportFileName" class="drop-zone-title">Нажмите или перетащите файл сюда</span>
+        <span class="drop-zone-sub">Поддерживается: CSV, TXT, XLS, XLSX</span>
+        <input type="file" id="aiImportFileInput" accept=".csv,.txt,.xls,.xlsx" style="display: none;">
+      </label>
+
+      <div id="aiImportProgress" class="import-progress-box" style="display: none;">
+        <div class="import-progress-head">
+          <span id="aiImportProgressLabel">✨ Обрабатываю...</span>
+          <span id="aiImportProgressCount">0 / 0</span>
+        </div>
+        <div class="import-progress-track">
+          <div id="aiImportProgressBar" class="import-progress-fill"></div>
+        </div>
+        <div id="aiImportProgressSub" class="import-progress-sub"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="cancelAiImport" class="ghost">Отмена</button>
+        <button type="button" id="submitAiImportBtn" class="primary" disabled>Импортировать</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ БЫСТРОГО ДОБАВЛЕНИЯ С ИИ И ГОЛОСОМ ================= -->
+  <dialog id="quickAiAddDialog" class="modal">
+    <form id="quickAiAddForm" class="modal-content">
+      <h3>Добавить с помощью ИИ</h3>
+      <p class="modal-desc">
+        Напишите или надиктуйте ваши расходы или доходы в свободной форме (например: «вчера потратил 450р на такси» или «зарплата 65000 рублей»):
+      </p>
+      <label>Текст операции
+        <div class="voice-textarea-wrap">
+          <textarea id="quickAiAddText" rows="3" required placeholder="Например: продукты 525р сегодня"></textarea>
+          <button type="button" id="voiceSearchBtn" title="Голосовой ввод" aria-label="Голосовой ввод">
+            <svg id="micIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="23"></line>
+              <line x1="8" y1="23" x2="16" y2="23"></line>
+            </svg>
+          </button>
+        </div>
+      </label>
+      <div id="quickAiAddLoader" class="ai-inline-loader" style="display: none;">
+        <span>✨ Распознаю и добавляю операцию...</span>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="cancelQuickAiAdd" class="ghost">Отмена</button>
+        <button type="submit" id="submitQuickAiAddBtn" class="primary">Добавить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ================= ДИАЛОГ ОБЪЯСНЕНИЯ ОБЛАКА ================= -->
+  <dialog id="cloudExplainDialog" class="modal">
+    <div class="modal-content">
+      <h3>Режим: Локально ☁️</h3>
+      <p class="modal-desc">
+        Ваши финансовые данные хранятся <strong>на этом устройстве</strong> в локальной памяти браузера.
+      </p>
+      <p class="modal-desc">
+        Вы можете подключить свою бесплатную облачную базу данных Supabase для синхронизации между устройствами, либо делать резервные копии через CSV.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="closeCloudExplainBtn" class="ghost">Понятно</button>
+        <button type="button" id="cloudExplainAuthBtn" class="primary">Настроить облако</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

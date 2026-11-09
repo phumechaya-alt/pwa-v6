@@ -1,0 +1,46 @@
+{
+  "name": "Кошелек PWA",
+  "short_name": "Кошелек",
+  "description": "Эстетичный личный учет доходов, расходов и счетов",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#FAF8F5",
+  "background_color": "#FAF8F5",
+  "lang": "ru",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Добавить расход",
+      "short_name": "Расход",
+      "url": "./index.html?tab=expense&action=add",
+      "description": "Быстро добавить расход"
+    },
+    {
+      "name": "Добавить доход",
+      "short_name": "Доход",
+      "url": "./index.html?tab=income&action=add",
+      "description": "Быстро добавить доход"
+    }
+  ]
+}
