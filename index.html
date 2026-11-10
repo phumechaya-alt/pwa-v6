@@ -717,107 +717,25 @@
         </div>
       </details>
 
-      <!-- Облако -->
-      <details class="settings-group">
-        <summary><span>☁️ Синхронизация и облако</span></summary>
+      <!-- Профиль и Синхронизация с сервером -->
+      <details class="settings-group" open>
+        <summary><span>👤 Профиль и Сервер (traty.danywalery.cfd)</span></summary>
         <div class="settings-form-stack">
-          <div id="cloudUserStatus" class="cloud-status-box">
-            <span>Режим: <strong>Локальный кошелёк (Offline)</strong></span>
-          </div>
-          <div id="cloudConfigBlock" class="cloud-config-box">
-            <div id="dbAuthFormBlock" class="settings-form-stack">
-              <label>Email / Почта
-                <input id="supabaseEmailInput" type="email" placeholder="email@example.com">
-              </label>
-              <label>Пароль
-                <input id="supabasePasswordInput" type="password" placeholder="••••••••">
-              </label>
-              <details class="db-details">
-                <summary id="dbSettingsSummary">⚙️ Параметры подключения к БД (Supabase)</summary>
-                <div class="settings-form-stack" style="margin-top: 8px;">
-                  <label>Supabase URL
-                    <input id="supabaseUrlInput" type="url" placeholder="https://your-project.supabase.co">
-                  </label>
-                  <label>Supabase Anon Key
-                    <input id="supabaseKeyInput" type="password" placeholder="your-anon-key">
-                  </label>
-                </div>
-              </details>
-              <div class="row" style="gap: 8px; margin-top: 6px;">
-                <button type="button" id="supabaseLoginBtn" class="primary" style="flex: 1;">Войти</button>
-                <button type="button" id="supabaseRegisterBtn" class="ghost" style="flex: 1;">Регистрация</button>
+          <div class="profile-card-box">
+            <div class="profile-card-head">
+              <div class="profile-avatar-circle" id="profileAvatarLetter">?</div>
+              <div class="profile-info">
+                <div class="profile-email" id="profileUserEmail">Загрузка...</div>
+                <div class="profile-status" id="profileServerStatus">🟢 traty.danywalery.cfd (Синхронизировано)</div>
               </div>
             </div>
-
-            <div id="dbLoggedInBlock" class="settings-form-stack" style="display: none;">
-              <div class="cloud-active-label">☁️ Активная синхронизация</div>
-              <div class="cloud-email-card">
-                <span>Вы вошли как:</span>
-                <strong id="supabaseUserEmailDisplay">user@mail.com</strong>
-              </div>
-              <div class="row" style="gap: 8px;">
-                <button type="button" id="supabaseLogoutBtn" class="ghost danger-outline" style="flex: 1;">Выйти</button>
-                <button type="button" id="fullDisconnectBtn" class="ghost" style="flex: 1;">Отключить всё</button>
-              </div>
+            <div class="profile-stats-row">
+              <span>👥 Пользователей на сервере:</span>
+              <strong id="profileTotalUsersCount">1</strong>
             </div>
-
-            <button type="button" id="toggleCloudInstructionBtn" class="ghost full-w-btn" style="margin-top: 8px;">📖 Инструкция по созданию своей БД Supabase</button>
-            <div id="cloudInstructionBlock" class="instruction-box" style="display: none;">
-              <p><strong>Как создать свою БД бесплатно за 5 минут:</strong></p>
-              <p>1. Зарегистрируйтесь на <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>.</p>
-              <p>2. Создайте проект, откройте <strong>SQL Editor → New Query</strong>, вставьте скрипт ниже и нажмите <strong>Run</strong>.</p>
-              <p>3. Скопируйте <strong>Project URL</strong> и <strong>anon public</strong> из раздела <strong>Settings → API</strong>.</p>
-              <textarea readonly class="sql-script-area" onclick="this.select(); document.execCommand('copy');" title="Нажмите, чтобы скопировать">-- 1. Таблица профилей
-create table profiles (
-  id uuid primary key,
-  balance_adjustment numeric default 0,
-  updated_at timestamptz default now()
-);
-
--- 2. Таблица категорий
-create table categories (
-  id text primary key,
-  user_id uuid default '00000000-0000-0000-0000-000000000000',
-  name text not null,
-  color text not null,
-  type text not null check (type in ('income', 'expense'))
-);
-
--- 3. Таблица транзакций
-create table transactions (
-  id text primary key,
-  user_id uuid default '00000000-0000-0000-0000-000000000000',
-  type text not null check (type in ('income', 'expense')),
-  amount numeric not null,
-  category_id text references categories(id) on delete set null,
-  date date not null,
-  comment text default ''
-);
-
--- 4. Таблица быстрых шаблонов
-create table templates (
-  id text primary key,
-  user_id uuid default '00000000-0000-0000-0000-000000000000',
-  name text not null,
-  type text not null check (type in ('income', 'expense')),
-  category_id text references categories(id) on delete set null,
-  comment text default ''
-);
-
--- 5. Таблица сессий чата с ИИ
-create table ai_sessions (
-  id text primary key,
-  user_id uuid default '00000000-0000-0000-0000-000000000000',
-  title text not null,
-  history jsonb default '[]'::jsonb,
-  date timestamptz default now()
-);
-
-alter table profiles disable row level security;
-alter table categories disable row level security;
-alter table transactions disable row level security;
-alter table templates disable row level security;
-alter table ai_sessions disable row level security;</textarea>
+            <div class="row" style="gap: 8px;">
+              <button type="button" id="forceSyncServerBtn" class="primary" style="flex: 1;">Синхронизировать</button>
+              <button type="button" id="logoutProfileBtn" class="ghost danger-outline" style="flex: 1;">Выйти</button>
             </div>
           </div>
         </div>
@@ -933,6 +851,67 @@ alter table ai_sessions disable row level security;</textarea>
       </div>
     </div>
   </dialog>
+
+  <!-- ================= ЭКРАН АВТОРИЗАЦИИ / ПРОФИЛЯ (В СТИЛЕ ПРИЛОЖЕНИЯ) ================= -->
+  <div id="authOverlay" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="auth-logo-circle">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"></path>
+            <path d="M4 6v12c0 1.1.9 2 2 2h14v-4"></path>
+            <circle cx="16" cy="14" r="1.5" fill="#FFFFFF"></circle>
+          </svg>
+        </div>
+        <h1 class="script-heading auth-title">Личный Кошелёк</h1>
+        <p class="auth-subtitle">Учёт финансов · traty.danywalery.cfd</p>
+      </div>
+
+      <!-- ШАГ 1: Ввод Email -->
+      <form id="authStepEmailForm" class="auth-form" autocomplete="on">
+        <div class="auth-field">
+          <label for="authEmailInput" class="auth-label">Ваша почта или логин</label>
+          <input id="authEmailInput" type="email" inputmode="email" autocomplete="username email" placeholder="например, name@example.com" required class="auth-input">
+        </div>
+        <div id="authEmailError" class="auth-error-msg" style="display:none"></div>
+        <button type="submit" id="authEmailNextBtn" class="primary full-w-btn auth-btn">
+          <span>Продолжить</span>
+          <span class="auth-arrow">→</span>
+        </button>
+      </form>
+
+      <!-- ШАГ 2: Ввод Пароля (для входа или регистрации) -->
+      <form id="authStepPasswordForm" class="auth-form" style="display:none" autocomplete="on">
+        <div class="auth-user-pill">
+          <span class="auth-pill-email" id="authDisplayEmail">email@example.com</span>
+          <button type="button" id="authChangeEmailBtn" class="text-link-btn auth-change-btn">изменить</button>
+        </div>
+
+        <div id="authModeNotice" class="auth-notice">
+          <h3 id="authNoticeTitle" class="auth-notice-title">С возвращением!</h3>
+          <p id="authNoticeDesc" class="auth-notice-desc">Введите пароль от вашего аккаунта:</p>
+        </div>
+
+        <div class="auth-field">
+          <label for="authPasswordInput" class="auth-label">Пароль</label>
+          <div class="api-key-row">
+            <input id="authPasswordInput" type="password" autocomplete="current-password" placeholder="Введите ваш пароль" required class="auth-input">
+            <button type="button" id="authTogglePasswordBtn" class="ghost icon-square-btn" aria-label="Показать пароль">👁</button>
+          </div>
+        </div>
+
+        <div id="authPasswordError" class="auth-error-msg" style="display:none"></div>
+
+        <button type="submit" id="authPasswordSubmitBtn" class="primary full-w-btn auth-btn">
+          <span id="authSubmitBtnText">Войти в кошелёк</span>
+        </button>
+      </form>
+
+      <div class="auth-footer-stats">
+        <span id="authServerStatsText">🔒 Защищённое соединение с traty.danywalery.cfd</span>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

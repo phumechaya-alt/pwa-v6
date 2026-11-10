@@ -898,7 +898,7 @@ function migrateCatColors() {
   if (changed) saveData();
 }
 
-function saveData() {
+function saveDataInternal() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     transactions: state.transactions,
     categories: state.categories,
@@ -909,6 +909,491 @@ function saveData() {
     aiApiKey: localStorage.getItem(AI_KEY) || ''
   }));
   localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(state.accounts));
+}
+
+function saveData() {
+  saveDataInternal();
+  scheduleServerSync();
+}
+
+/* ===== СЕРВЕРНАЯ АВТОРИЗАЦИЯ И ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ (traty.danywalery.cfd) ===== */
+const AUTH_TOKEN_KEY = 'traty_auth_token';
+const AUTH_USER_KEY = 'traty_user';
+
+let currentAuthMode = 'login'; // 'login' | 'register'
+let currentAuthEmail = '';
+let syncDebounceTimer = null;
+
+function getAuthToken() {
+  try { return localStorage.getItem(AUTH_TOKEN_KEY) || ''; } catch { return ''; }
+}
+
+function setAuthToken(token) {
+  try { localStorage.setItem(AUTH_TOKEN_KEY, token); } catch {}
+}
+
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(AUTH_USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function setStoredUser(user) {
+  try { localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user)); } catch {}
+}
+
+function clearAuth() {
+  try {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+  } catch {}
+}
+
+function showAuthOverlay() {
+  const overlay = document.getElementById('authOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+  overlay.classList.add('visible');
+
+  // Reset to Step 1
+  const stepEmail = document.getElementById('authStepEmailForm');
+  const stepPassword = document.getElementById('authStepPasswordForm');
+  const emailErr = document.getElementById('authEmailError');
+  const passErr = document.getElementById('authPasswordError');
+  if (stepEmail) stepEmail.style.display = 'block';
+  if (stepPassword) stepPassword.style.display = 'none';
+  if (emailErr) { emailErr.style.display = 'none'; emailErr.textContent = ''; }
+  if (passErr) { passErr.style.display = 'none'; passErr.textContent = ''; }
+
+  const emailInput = document.getElementById('authEmailInput');
+  if (emailInput) {
+    if (!emailInput.value) {
+      const stored = getStoredUser();
+      if (stored?.email) emailInput.value = stored.email;
+    }
+    setTimeout(() => emailInput.focus(), 150);
+  }
+
+  // Load server visitor / user stats
+  fetch('/api/stats')
+    .then(r => r.json())
+    .then(d => {
+      const textEl = document.getElementById('authServerStatsText');
+      if (textEl && d.totalUsers !== undefined) {
+        textEl.textContent = `🔒 Сервер traty.danywalery.cfd · Пользователей: ${d.totalUsers}`;
+      }
+    })
+    .catch(() => {});
+}
+
+function hideAuthOverlay() {
+  const overlay = document.getElementById('authOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('visible');
+  overlay.classList.add('hidden');
+}
+
+function updateProfileUI() {
+  const user = getStoredUser();
+  const emailEl = document.getElementById('profileUserEmail');
+  const avatarEl = document.getElementById('profileAvatarLetter');
+  const totalUsersEl = document.getElementById('profileTotalUsersCount');
+
+  if (user && user.email) {
+    if (emailEl) emailEl.textContent = user.email;
+    if (avatarEl) avatarEl.textContent = (user.email[0] || 'U').toUpperCase();
+  } else {
+    if (emailEl) emailEl.textContent = 'Не авторизован';
+    if (avatarEl) avatarEl.textContent = '?';
+  }
+
+  fetch('/api/stats')
+    .then(r => r.json())
+    .then(d => {
+      if (totalUsersEl && d.totalUsers !== undefined) {
+        totalUsersEl.textContent = d.totalUsers;
+      }
+    })
+    .catch(() => {});
+}
+
+function getAppSyncPayload() {
+  return {
+    transactions: state.transactions || [],
+    categories: state.categories || { expense: [], income: [] },
+    accounts: state.accounts || [],
+    balanceAdjustment: state.balanceAdjustment || 0,
+    templates: state.templates || JSON.parse(localStorage.getItem('koshelek_templates') || '[]'),
+    aiSessions: state.aiSessions || JSON.parse(localStorage.getItem('koshelek_ai_sessions') || '[]'),
+    aiSettings: {
+      provider: state.aiProvider || 'google',
+      model: state.aiModel || 'gemini-2.5-flash',
+      apiUrl: state.aiApiUrl || '',
+      apiKey: localStorage.getItem(AI_KEY) || ''
+    },
+    version: 1,
+    clientUpdatedAt: new Date().toISOString()
+  };
+}
+
+function applyAppSyncPayload(payload) {
+  if (!payload || typeof payload !== 'object') return false;
+  let changed = false;
+  if (Array.isArray(payload.transactions)) {
+    state.transactions = payload.transactions;
+    changed = true;
+  }
+  if (payload.categories && Array.isArray(payload.categories.expense) && Array.isArray(payload.categories.income)) {
+    state.categories = payload.categories;
+    changed = true;
+  }
+  if (Array.isArray(payload.accounts) && payload.accounts.length) {
+    state.accounts = payload.accounts;
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(state.accounts));
+    changed = true;
+  }
+  if (typeof payload.balanceAdjustment === 'number') {
+    state.balanceAdjustment = payload.balanceAdjustment;
+    changed = true;
+  }
+  if (Array.isArray(payload.templates)) {
+    state.templates = payload.templates;
+    localStorage.setItem('koshelek_templates', JSON.stringify(state.templates));
+    if (typeof renderTemplates === 'function') renderTemplates();
+  }
+  if (Array.isArray(payload.aiSessions)) {
+    state.aiSessions = payload.aiSessions;
+    localStorage.setItem('koshelek_ai_sessions', JSON.stringify(state.aiSessions));
+  }
+  if (payload.aiSettings && typeof payload.aiSettings === 'object') {
+    if (payload.aiSettings.apiKey !== undefined) {
+      localStorage.setItem(AI_KEY, payload.aiSettings.apiKey);
+      const kEl = document.getElementById('aiApiKey');
+      if (kEl) kEl.value = payload.aiSettings.apiKey;
+    }
+    if (payload.aiSettings.provider) {
+      state.aiProvider = payload.aiSettings.provider;
+      localStorage.setItem(AI_PROVIDER_KEY, state.aiProvider);
+      const pEl = document.getElementById('aiProvider');
+      if (pEl) pEl.value = state.aiProvider;
+    }
+    if (payload.aiSettings.model) {
+      state.aiModel = payload.aiSettings.model;
+      localStorage.setItem(AI_MODEL_KEY, state.aiModel);
+      const mEl = document.getElementById('aiModel');
+      if (mEl) mEl.value = state.aiModel;
+    }
+    if (payload.aiSettings.apiUrl !== undefined) {
+      state.aiApiUrl = payload.aiSettings.apiUrl;
+      localStorage.setItem(AI_URL_KEY, state.aiApiUrl);
+      const uEl = document.getElementById('aiApiUrl');
+      if (uEl) uEl.value = state.aiApiUrl;
+    }
+    if (typeof updateAiSettingsStatusUI === 'function') updateAiSettingsStatusUI();
+  }
+  if (changed) {
+    saveDataInternal();
+    if (typeof render === 'function') render();
+  }
+  return true;
+}
+
+async function fetchServerData() {
+  const token = getAuthToken();
+  if (!token) return;
+  const statusEl = document.getElementById('profileServerStatus');
+  if (statusEl) statusEl.textContent = '🔄 traty.danywalery.cfd (Синхронизация...)';
+
+  try {
+    const res = await fetch('/api/data', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.status === 401) {
+      clearAuth();
+      showAuthOverlay();
+      return;
+    }
+    if (!res.ok) throw new Error('Ошибка HTTP ' + res.status);
+    const result = await res.json();
+    const serverPayload = result.data;
+
+    const hasServerData = serverPayload &&
+      ((Array.isArray(serverPayload.transactions) && serverPayload.transactions.length > 0) ||
+       (serverPayload.categories && serverPayload.categories.expense?.length > 0));
+
+    if (hasServerData) {
+      applyAppSyncPayload(serverPayload);
+      if (statusEl) {
+        const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        statusEl.textContent = `🟢 traty.danywalery.cfd (${time})`;
+      }
+    } else {
+      if (state.transactions && state.transactions.length > 0) {
+        await syncDataToServer(false);
+      } else if (statusEl) {
+        statusEl.textContent = '🟢 traty.danywalery.cfd (Синхронизировано)';
+      }
+    }
+  } catch (err) {
+    console.warn('Server fetch error:', err);
+    if (statusEl) statusEl.textContent = '🟠 Офлайн (сохранено на телефоне)';
+  }
+}
+
+async function syncDataToServer(isManual = false) {
+  const token = getAuthToken();
+  if (!token) return;
+  const statusEl = document.getElementById('profileServerStatus');
+  if (statusEl) statusEl.textContent = '🔄 traty.danywalery.cfd (Сохранение...)';
+
+  try {
+    const payload = getAppSyncPayload();
+    const res = await fetch('/api/data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ data: payload })
+    });
+
+    if (res.status === 401) {
+      clearAuth();
+      showAuthOverlay();
+      return;
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ('HTTP ' + res.status));
+    }
+
+    const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    if (statusEl) statusEl.textContent = `🟢 traty.danywalery.cfd (${time})`;
+    if (isManual) showToast('✅ Данные успешно сохранены на сервере');
+  } catch (err) {
+    console.warn('Sync to server failed:', err);
+    if (statusEl) statusEl.textContent = '🟠 Офлайн (сохранено на телефоне)';
+    if (isManual) showToast('⚠️ Нет связи с сервером. Сохранено локально.');
+  }
+}
+
+function scheduleServerSync() {
+  if (!getAuthToken()) return;
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    syncDataToServer(false);
+  }, 1200);
+}
+
+async function handleEmailCheckSubmit(e) {
+  e.preventDefault();
+  const input = document.getElementById('authEmailInput');
+  const errEl = document.getElementById('authEmailError');
+  const btn = document.getElementById('authEmailNextBtn');
+  const email = (input?.value || '').trim().toLowerCase();
+
+  if (!email || !email.includes('@')) {
+    if (errEl) {
+      errEl.textContent = 'Пожалуйста, введите корректный адрес почты';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (errEl) errEl.style.display = 'none';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Проверяем...</span>';
+  }
+
+  try {
+    const res = await fetch('/api/auth/check-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Ошибка проверки почты');
+
+    currentAuthEmail = email;
+    const displayEmail = document.getElementById('authDisplayEmail');
+    if (displayEmail) displayEmail.textContent = email;
+
+    const noticeTitle = document.getElementById('authNoticeTitle');
+    const noticeDesc = document.getElementById('authNoticeDesc');
+    const submitText = document.getElementById('authSubmitBtnText');
+    const passInput = document.getElementById('authPasswordInput');
+    const passErr = document.getElementById('authPasswordError');
+
+    if (passErr) { passErr.style.display = 'none'; passErr.textContent = ''; }
+    if (passInput) passInput.value = '';
+
+    if (data.exists) {
+      currentAuthMode = 'login';
+      if (noticeTitle) noticeTitle.textContent = 'С возвращением!';
+      if (noticeDesc) noticeDesc.textContent = 'Введите пароль от вашего аккаунта:';
+      if (submitText) submitText.textContent = 'Войти в кошелёк';
+    } else {
+      currentAuthMode = 'register';
+      if (noticeTitle) noticeTitle.textContent = 'Создание аккаунта';
+      if (noticeDesc) noticeDesc.textContent = 'Аккаунт не найден. Придумайте пароль (от 6 символов) для регистрации:';
+      if (submitText) submitText.textContent = 'Создать аккаунт и войти';
+    }
+
+    const stepEmail = document.getElementById('authStepEmailForm');
+    const stepPass = document.getElementById('authStepPasswordForm');
+    if (stepEmail) stepEmail.style.display = 'none';
+    if (stepPass) stepPass.style.display = 'block';
+
+    setTimeout(() => { if (passInput) passInput.focus(); }, 100);
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = err.message || 'Ошибка соединения с сервером';
+      errEl.style.display = 'block';
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Продолжить</span><span class="auth-arrow">→</span>';
+    }
+  }
+}
+
+async function handlePasswordSubmit(e) {
+  e.preventDefault();
+  const passInput = document.getElementById('authPasswordInput');
+  const errEl = document.getElementById('authPasswordError');
+  const btn = document.getElementById('authPasswordSubmitBtn');
+  const submitText = document.getElementById('authSubmitBtnText');
+  const password = passInput?.value || '';
+
+  if (!password || password.length < 6) {
+    if (errEl) {
+      errEl.textContent = 'Пароль должен быть не менее 6 символов';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  if (errEl) errEl.style.display = 'none';
+  if (btn) btn.disabled = true;
+  const originalText = submitText ? submitText.textContent : 'Войти';
+  if (submitText) submitText.textContent = currentAuthMode === 'login' ? 'Вход...' : 'Регистрация...';
+
+  try {
+    const endpoint = currentAuthMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentAuthEmail, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Ошибка входа');
+    }
+
+    setAuthToken(data.token);
+    setStoredUser(data.user);
+    hideAuthOverlay();
+    updateProfileUI();
+
+    if (currentAuthMode === 'register') {
+      showToast('🎉 Добро пожаловать! Аккаунт успешно создан.');
+      await syncDataToServer(false);
+    } else {
+      showToast(`👋 С возвращением, ${data.user.email}!`);
+      await fetchServerData();
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = err.message || 'Ошибка авторизации';
+      errEl.style.display = 'block';
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+    if (submitText) submitText.textContent = originalText;
+  }
+}
+
+function handleProfileLogout() {
+  if (!confirm('Вы действительно хотите выйти из аккаунта на этом устройстве?\n\nЛокальные данные останутся сохранены.')) {
+    return;
+  }
+  clearAuth();
+  document.getElementById('settingsDialog')?.close();
+  showAuthOverlay();
+  updateProfileUI();
+  showToast('Вы вышли из профиля');
+}
+
+function initAuth() {
+  const emailForm = document.getElementById('authStepEmailForm');
+  if (emailForm) emailForm.addEventListener('submit', handleEmailCheckSubmit);
+
+  const passForm = document.getElementById('authStepPasswordForm');
+  if (passForm) passForm.addEventListener('submit', handlePasswordSubmit);
+
+  const changeEmailBtn = document.getElementById('authChangeEmailBtn');
+  if (changeEmailBtn) {
+    changeEmailBtn.addEventListener('click', () => {
+      const stepEmail = document.getElementById('authStepEmailForm');
+      const stepPass = document.getElementById('authStepPasswordForm');
+      if (stepPass) stepPass.style.display = 'none';
+      if (stepEmail) stepEmail.style.display = 'block';
+      const emailInput = document.getElementById('authEmailInput');
+      if (emailInput) setTimeout(() => emailInput.focus(), 50);
+    });
+  }
+
+  const togglePassBtn = document.getElementById('authTogglePasswordBtn');
+  if (togglePassBtn) {
+    togglePassBtn.addEventListener('click', () => {
+      const passInput = document.getElementById('authPasswordInput');
+      if (!passInput) return;
+      if (passInput.type === 'password') {
+        passInput.type = 'text';
+        togglePassBtn.textContent = '🔒';
+      } else {
+        passInput.type = 'password';
+        togglePassBtn.textContent = '👁';
+      }
+    });
+  }
+
+  safeBind('forceSyncServerBtn', 'click', () => syncDataToServer(true));
+  safeBind('logoutProfileBtn', 'click', handleProfileLogout);
+
+  const token = getAuthToken();
+  if (token) {
+    hideAuthOverlay();
+    updateProfileUI();
+
+    // Verify token with backend
+    fetch('/api/auth/me', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(res => {
+        if (res.status === 401) {
+          clearAuth();
+          showAuthOverlay();
+        } else if (res.ok) {
+          res.json().then(d => {
+            if (d.user) setStoredUser(d.user);
+            updateProfileUI();
+            fetchServerData();
+          });
+        }
+      })
+      .catch(() => {
+        console.log('App started offline, running with local data.');
+        const statusEl = document.getElementById('profileServerStatus');
+        if (statusEl) statusEl.textContent = '🟠 Офлайн (локальный режим)';
+      });
+  } else {
+    showAuthOverlay();
+  }
 }
 
 /* ===== УТИЛИТЫ И БЕЗОПАСНЫЙ КАЛЬКУЛЯТОР ===== */
@@ -4641,6 +5126,7 @@ function init() {
   preventMobileZoom();
   initTheme();
   loadData();
+  initAuth();
   initSupabase();
   bindBalanceToggle();
   bindEvents();

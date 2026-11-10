@@ -1,4 +1,4 @@
-const CACHE_NAME = 'koshelek-v6-1';
+const CACHE_NAME = 'koshelek-v6-2';
 const ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,10 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+
+  const url = new URL(e.request.url);
+  // Do not intercept or cache dynamic API endpoints
+  if (url.pathname.startsWith('/api/')) return;
 
   e.respondWith(
     fetch(e.request)
