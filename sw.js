@@ -1,12 +1,14 @@
-const CACHE_NAME = 'koshelek-v6-2';
+const CACHE_NAME = 'koshelek-v6-3';
 const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  '/',
+  '/index.html',
+  '/styles.css',
+  '/app.js',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/apple-touch-icon.png',
+  '/icons/icon.svg'
 ];
 
 self.addEventListener('install', e => {
@@ -43,7 +45,7 @@ self.addEventListener('fetch', e => {
         caches.match(e.request).then(cached => {
           if (cached) return cached;
           if (e.request.destination === 'document') {
-            return caches.match('./index.html');
+            return caches.match('/') || caches.match('/index.html');
           }
         })
       )
